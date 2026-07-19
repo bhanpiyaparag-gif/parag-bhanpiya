@@ -190,6 +190,7 @@ function animate(element){
     const hasDollar = text.includes("$");
     const hasPercent = text.includes("%");
     const hasPlus = text.includes("+");
+    const decimals = (text.match(/\.(\d+)/) || [,""])[1].length;
 
     let current = 0;
 
@@ -206,7 +207,7 @@ function animate(element){
             clearInterval(timer);
         }
 
-        let output = Math.floor(current);
+        let output = decimals > 0 ? current.toFixed(decimals) : Math.floor(current);
 
         if(hasDollar){
 
