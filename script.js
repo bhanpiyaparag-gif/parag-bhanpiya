@@ -1,310 +1,397 @@
-/* ==========================================================
-   PARAG BHANPIYA
-   script.js
-========================================================== */
-
-
 
 /* ==========================================================
-   SCROLL PROGRESS BAR
+   PARAG BHANPIYA — INTERACTIONS
 ========================================================== */
 
-const progressBar = document.getElementById("progress-bar");
+(() => {
 
-window.addEventListener("scroll", () => {
+    "use strict";
 
-    const scrollTop = window.pageYOffset;
+    const progressBar = document.getElementById("progress-bar");
+    const header = document.querySelector("header");
 
-    const docHeight =
-        document.documentElement.scrollHeight - window.innerHeight;
+    const sections = Array.from(
+        document.querySelectorAll("main section[id]")
+    );
 
-    const progress = (scrollTop / docHeight) * 100;
+    const navLinks = Array.from(
+        document.querySelectorAll("nav a[href^='#']")
+    );
 
-    progressBar.style.width = progress + "%";
+    const prefersReducedMotion = window.matchMedia(
+        "(prefers-reduced-motion: reduce)"
+    );
 
-});
 
+    /* ==========================================================
+       SCROLL PROGRESS + HEADER BACKGROUND
+    ========================================================== */
 
+    let scrollUpdatePending = false;
 
-/* ==========================================================
-   HEADER BACKGROUND
-========================================================== */
+    function updateScrollUI() {
 
-const header = document.querySelector("header");
+        const scrollTop =
+            window.scrollY || document.documentElement.scrollTop;
 
-window.addEventListener("scroll", () => {
+        const scrollableHeight =
+            document.documentElement.scrollHeight - window.innerHeight;
 
-    if(window.scrollY > 40){
+        const progress = scrollableHeight > 0
+            ? Math.min(
+                100,
+                Math.max(0, (scrollTop / scrollableHeight) * 100)
+            )
+            : 0;
 
-        header.style.background = "rgba(255,255,255,.95)";
-        header.style.boxShadow = "0 5px 30px rgba(0,0,0,.05)";
+        if (progressBar) {
+
+            progressBar.style.width = `${progress}%`;
+
+            progressBar.setAttribute(
+                "aria-valuenow",
+                String(Math.round(progress))
+            );
+
+        }
+
+        if (header) {
+
+            header.classList.toggle(
+                "scrolled",
+                scrollTop > 40
+            );
+
+        }
+
+        scrollUpdatePending = false;
 
     }
 
-    else{
 
-        header.style.background = "rgba(255,255,255,.82)";
-        header.style.boxShadow = "none";
+    function requestScrollUpdate() {
+
+        if (scrollUpdatePending) return;
+
+        scrollUpdatePending = true;
+
+        window.requestAnimationFrame(updateScrollUI);
 
     }
 
-});
+
+    window.addEventListener(
+        "scroll",
+        requestScrollUpdate,
+        { passive: true }
+    );
+
+    window.addEventListener(
+        "resize",
+        requestScrollUpdate
+    );
+
+    updateScrollUI();
 
 
+    /* ==========================================================
+       ACTIVE NAVIGATION
+    ========================================================== */
 
-/* ==========================================================
-   FADE-IN ANIMATION
-========================================================== */
+    function setActiveLink(sectionId) {
 
-const observer = new IntersectionObserver((entries)=>{
+        navLinks.forEach((link) => {
 
-    entries.forEach(entry=>{
+            const isActive =
+                link.getAttribute("href") === `#${sectionId}`;
 
-        if(entry.isIntersecting){
+            link.classList.toggle("active", isActive);
 
-            entry.target.classList.add("show");
+            if (isActive) {
+
+                link.setAttribute(
+                    "aria-current",
+                    "location"
+                );
+
+            } else {
+
+                link.removeAttribute("aria-current");
+
+            }
+
+        });
+
+    }
+
+
+    if ("IntersectionObserver" in window && sections.length) {
+
+        const navigationObserver = new IntersectionObserver(
+            (entries) => {
+
+                const visibleSections = entries
+                    .filter(entry => entry.isIntersecting)
+                    .sort(
+                        (a, b) =>
+                            b.intersectionRatio - a.intersectionRatio
+                    );
+
+                if (visibleSections.length) {
+
+                    setActiveLink(
+                        visibleSections[0].target.id
+                    );
+
+                }
+
+            },
+            {
+                rootMargin: "-25% 0px -60% 0px",
+                threshold: [0, 0.1, 0.25, 0.5]
+            }
+        );
+
+
+        sections.forEach(section => {
+
+            navigationObserver.observe(section);
+
+        });
+
+    }
+
+
+    /* ==========================================================
+       FADE-IN ANIMATIONS
+    ========================================================== */
+
+    const revealTargets = document.querySelectorAll(
+        "main section .container > *, " +
+        ".stat-card, " +
+        ".leadership-card, " +
+        ".achievement-card, " +
+        ".project-card, " +
+        ".book-card"
+    );
+
+
+    if (
+        !prefersReducedMotion.matches &&
+        "IntersectionObserver" in window
+    ) {
+
+        document.documentElement.classList.add(
+            "reveal-enabled"
+        );
+
+
+        const revealObserver = new IntersectionObserver(
+            (entries, observer) => {
+
+                entries.forEach(entry => {
+
+                    if (entry.isIntersecting) {
+
+                        entry.target.classList.add("show");
+
+                        observer.unobserve(entry.target);
+
+                    }
+
+                });
+
+            },
+            {
+                threshold: 0.12
+            }
+        );
+
+
+        revealTargets.forEach(element => {
+
+            element.classList.add("fade");
+
+            revealObserver.observe(element);
+
+        });
+
+    }
+
+
+    /* ==========================================================
+       STATISTICS COUNTER
+    ========================================================== */
+
+    const statNumbers = document.querySelectorAll(
+        ".stat-card h3[data-count]"
+    );
+
+
+    function animateCounter(element) {
+
+        const target = Number(element.dataset.count);
+
+        if (!Number.isFinite(target)) return;
+
+        const prefix = element.dataset.prefix || "";
+
+        const suffix = element.dataset.suffix || "";
+
+        const decimals = (
+            String(element.dataset.count).split(".")[1] || ""
+        ).length;
+
+
+        /* Reduced motion: display the final value immediately */
+
+        if (prefersReducedMotion.matches) {
+
+            element.textContent =
+                `${prefix}${target.toFixed(decimals)}${suffix}`;
+
+            return;
 
         }
 
-    });
 
-},{
-    threshold:0.15
-});
+        const duration = 1300;
 
-document.querySelectorAll("section").forEach(section=>{
-
-    section.classList.add("fade");
-
-    observer.observe(section);
-
-});
+        const startTime = performance.now();
 
 
+        function frame(now) {
 
-/* ==========================================================
-   ACTIVE NAVIGATION
-========================================================== */
+            const elapsed = Math.min(
+                (now - startTime) / duration,
+                1
+            );
 
-const sections = document.querySelectorAll("section");
-const navLinks = document.querySelectorAll("nav a");
+            const eased = 1 - Math.pow(1 - elapsed, 3);
 
-window.addEventListener("scroll",()=>{
+            const value = target * eased;
 
-    let current = "";
 
-    sections.forEach(section=>{
+            const display = elapsed === 1
+                ? target.toFixed(decimals)
+                : (
+                    decimals
+                        ? value.toFixed(decimals)
+                        : Math.floor(value).toString()
+                );
 
-        const sectionTop = section.offsetTop - 120;
 
-        if(window.scrollY >= sectionTop){
+            element.textContent =
+                `${prefix}${display}${suffix}`;
 
-            current = section.getAttribute("id");
 
-        }
+            if (elapsed < 1) {
 
-    });
+                window.requestAnimationFrame(frame);
 
-    navLinks.forEach(link=>{
-
-        link.classList.remove("active");
-
-        if(link.getAttribute("href")==="#" + current){
-
-            link.classList.add("active");
+            }
 
         }
 
-    });
 
-});
+        window.requestAnimationFrame(frame);
 
+    }
 
 
-/* ==========================================================
-   SMOOTH SCROLL
-========================================================== */
+    if ("IntersectionObserver" in window) {
 
-document.querySelectorAll('a[href^="#"]').forEach(anchor=>{
+        const counterObserver = new IntersectionObserver(
+            (entries, observer) => {
 
-    anchor.addEventListener("click",function(e){
+                entries.forEach(entry => {
 
-        e.preventDefault();
+                    if (entry.isIntersecting) {
 
-        const target=document.querySelector(this.getAttribute("href"));
+                        animateCounter(entry.target);
 
-        if(target){
+                        observer.unobserve(entry.target);
 
-            target.scrollIntoView({
+                    }
 
-                behavior:"smooth"
+                });
 
-            });
+            },
+            {
+                threshold: 0.5
+            }
+        );
 
-        }
 
-    });
+        statNumbers.forEach(number => {
 
-});
+            counterObserver.observe(number);
 
+        });
 
+    } else {
 
-/* ==========================================================
-   STATS COUNTER
-========================================================== */
+        statNumbers.forEach(animateCounter);
 
-const statNumbers = document.querySelectorAll(".stat-card h3");
+    }
 
-const counterObserver = new IntersectionObserver((entries)=>{
 
-    entries.forEach(entry=>{
+    /* ==========================================================
+       PROJECT CARD POINTER EFFECT
+    ========================================================== */
 
-        if(entry.isIntersecting){
+    if (window.matchMedia("(pointer: fine)").matches) {
 
-            animate(entry.target);
+        document.querySelectorAll(".project-card").forEach(card => {
 
-            counterObserver.unobserve(entry.target);
+            card.addEventListener(
+                "pointermove",
+                (event) => {
 
-        }
+                    const rect = card.getBoundingClientRect();
 
-    });
+                    const x = event.clientX - rect.left;
 
-},{
-    threshold:.5
-});
+                    const y = event.clientY - rect.top;
 
-statNumbers.forEach(number=>{
+                    card.style.setProperty("--x", `${x}px`);
 
-    counterObserver.observe(number);
+                    card.style.setProperty("--y", `${y}px`);
 
-});
+                },
+                { passive: true }
+            );
 
-function animate(element){
+        });
 
-    const text = element.innerText;
+    }
 
-    const number = parseFloat(text.replace(/[^0-9.]/g,""));
 
-    if(isNaN(number)) return;
+    /* ==========================================================
+       AUTOMATIC FOOTER YEAR
+    ========================================================== */
 
-    const hasDollar = text.includes("$");
-    const hasPercent = text.includes("%");
-    const hasPlus = text.includes("+");
-    const decimals = (text.match(/\.(\d+)/) || [,""])[1].length;
+    const yearElement = document.getElementById("current-year");
 
-    let current = 0;
+    if (yearElement) {
 
-    const increment = number/80;
+        yearElement.textContent =
+            String(new Date().getFullYear());
 
-    const timer = setInterval(()=>{
+    }
 
-        current += increment;
 
-        if(current>=number){
+    /* ==========================================================
+       CONSOLE MESSAGE
+    ========================================================== */
 
-            current = number;
+    console.log(
+        "%cWelcome 👋",
+        "font-size:20px;font-weight:bold;color:#111;"
+    );
 
-            clearInterval(timer);
-        }
+    console.log(
+        "Designed & Developed by Parag Bhanpiya"
+    );
 
-        let output = decimals > 0 ? current.toFixed(decimals) : Math.floor(current);
-
-        if(hasDollar){
-
-            element.innerText = "$"+output+"K+";
-
-        }
-
-        else if(hasPercent){
-
-            element.innerText = output+"%";
-
-        }
-
-        else if(hasPlus){
-
-            element.innerText = output+"+";
-
-        }
-
-        else{
-
-            element.innerText = text;
-
-        }
-
-    },20);
-
-}
-
-
-
-/* ==========================================================
-   PROJECT CARD EFFECT
-========================================================== */
-
-document.querySelectorAll(".project-card").forEach(card=>{
-
-    card.addEventListener("mousemove",(e)=>{
-
-        const rect = card.getBoundingClientRect();
-
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-
-        card.style.setProperty("--x",x+"px");
-        card.style.setProperty("--y",y+"px");
-
-    });
-
-});
-
-
-
-/* ==========================================================
-   PARALLAX HERO
-========================================================== */
-
-const hero = document.querySelector(".hero");
-
-window.addEventListener("scroll",()=>{
-
-    const y = window.scrollY;
-
-    hero.style.transform = `translateY(${y*0.15}px)`;
-
-});
-
-
-
-/* ==========================================================
-   REDUCE MOTION
-========================================================== */
-
-const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
-
-if(prefersReducedMotion.matches){
-
-    document.documentElement.style.scrollBehavior = "auto";
-
-}
-
-
-
-/* ==========================================================
-   CONSOLE MESSAGE
-========================================================== */
-
-console.log(
-
-"%cWelcome 👋",
-
-"font-size:20px;font-weight:bold;color:#111;"
-
-);
-
-console.log(
-
-"Designed & Developed by Parag Bhanpiya"
-
-);
+})();
